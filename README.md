@@ -53,3 +53,18 @@ Demo patient: mobile **9876543210** at `/login`. With `DEV_SHOW_OTP=true` the OT
 - PDFs come from the browser's print-to-PDF on branded print layouts; there's no server-side PDF generation.
 - Production setup: switch the Prisma provider to `postgresql`, set a strong `AUTH_SECRET`, set `DEV_SHOW_OTP=false`, put encrypted storage behind `STORAGE_DIR` (or a private bucket), and configure HTTPS and backups.
 - Legal and compliance review (DPDP Act 2023, AYUSH and drug advertising rules, pharmacy licensing). The privacy policy is a draft. Verify the clinic's PIN code and the doctor's registration before they appear on official documents.
+
+## Deploying (Coolify)
+
+The production server runs Coolify. In Coolify go to **+ New → Private Repository → `parmsukh`**, then:
+
+1. **Build Pack:** Docker Compose, with compose file `/docker-compose.prod.yml`.
+2. **Domain:** on the `parmsukh` service, set e.g. `https://www.parmsukh.com,https://parmsukh.com`.
+3. **Environment variables:** add `SEED_SUPERADMIN_EMAIL` and `SEED_SUPERADMIN_PASSWORD` (14+ characters). Coolify generates `AUTH_SECRET` automatically.
+4. **Deploy,** then sign in at `/staff-login`. After that, delete `SEED_SUPERADMIN_PASSWORD` from Coolify.
+
+What runs in production:
+
+- **Data:** the database (SQLite) and uploaded reports live in the `parmsukh-data` volume. Back it up through Coolify or the Hostinger VPS backups.
+- **Production mode:** it seeds no demo accounts and never shows OTP codes on screen.
+- **⚠️ Patient login** needs an SMS provider, which isn't connected yet. Until it is, only staff can sign in.

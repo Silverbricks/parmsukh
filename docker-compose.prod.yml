@@ -1,0 +1,28 @@
+# Production stack for Coolify ("Docker Compose" build pack, compose file: docker-compose.prod.yml).
+# Coolify generates AUTH_SECRET and the public URL. Set the domain on the "parmsukh" service in Coolify.
+# The SQLite database and uploaded reports live in the "parmsukh-data" volume (back it up).
+
+services:
+  parmsukh:
+    build: .
+    restart: unless-stopped
+    environment:
+      - SERVICE_FQDN_PARMSUKH_3000
+      - AUTH_SECRET=${SERVICE_PASSWORD_64_AUTHSECRET}
+      - DEV_SHOW_OTP=false
+      - DATABASE_URL=file:/data/parmsukh.db
+      - STORAGE_DIR=/data/storage
+      # Creates this super admin on start (no demo data). Remove the password after first login.
+      - SEED_SUPERADMIN_EMAIL=${SEED_SUPERADMIN_EMAIL}
+      - SEED_SUPERADMIN_PASSWORD=${SEED_SUPERADMIN_PASSWORD}
+    volumes:
+      - parmsukh-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+volumes:
+  parmsukh-data:

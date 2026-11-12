@@ -10,7 +10,40 @@ const ymd = (offsetDays: number) => {
   return d.toISOString().slice(0, 10);
 };
 
+const STORE_CATEGORIES: [string, string][] = [
+  ["ayurvedic-medicines", "Ayurvedic Medicines"], ["homoeopathic-medicines", "Homoeopathic Medicines"],
+  ["herbal-products", "Herbal Products"], ["natural-wellness", "Natural Wellness"], ["personal-care", "Personal Care"],
+  ["skin-hair-care", "Skin & Hair Care"], ["digestive-wellness", "Digestive Wellness"],
+  ["health-accessories", "Health Accessories"], ["books", "Books & Education"],
+];
+const CLINIC_SETTINGS: Record<string, string> = {
+  clinic_name: "PARMSUKH Ayurveda & Homoeopathy Centre",
+  clinic_address: "Bhatti Road, Bathinda, Punjab, India",
+  clinic_phone: "", clinic_email: "care@parmsukh.com",
+  opening_hours: "Mon–Fri 10:00–13:00, 16:00–19:00 · Sat 10:00–13:00",
+  holidays: "",
+  invoice_prefix: "PS", gstin: "",
+};
+
+/** Production: one super admin from env vars + store categories + clinic settings. No demo accounts or data. */
+async function seedProduction() {
+  const email = process.env.SEED_SUPERADMIN_EMAIL?.trim().toLowerCase();
+  const pw = process.env.SEED_SUPERADMIN_PASSWORD;
+  if (!email || !pw || pw.length < 14) {
+    throw new Error("SEED_MODE=production needs SEED_SUPERADMIN_EMAIL and SEED_SUPERADMIN_PASSWORD (14+ characters)");
+  }
+  await db.user.upsert({ where: { email }, update: {}, create: { role: "SUPER_ADMIN", name: "Super Admin", email, passwordHash: await bcrypt.hash(pw, 12) } });
+  for (const [i, [slug, name]] of STORE_CATEGORIES.entries()) {
+    await db.category.upsert({ where: { slug }, update: {}, create: { slug, name, sort: i } });
+  }
+  for (const [key, value] of Object.entries(CLINIC_SETTINGS)) {
+    await db.clinicSetting.upsert({ where: { key }, update: {}, create: { key, value } });
+  }
+  console.log(`Production seed complete: super admin ${email}, ${STORE_CATEGORIES.length} store categories, clinic settings. No demo data.`);
+}
+
 async function main() {
+  if (process.env.SEED_MODE === "production") return seedProduction();
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
   const staff = [
     { role: "SUPER_ADMIN", name: "Super Admin", email: "superadmin@parmsukh.com" },
@@ -68,12 +101,7 @@ async function main() {
   }
 
   // Store
-  const cats = [
-    ["ayurvedic-medicines", "Ayurvedic Medicines"], ["homoeopathic-medicines", "Homoeopathic Medicines"],
-    ["herbal-products", "Herbal Products"], ["natural-wellness", "Natural Wellness"], ["personal-care", "Personal Care"],
-    ["skin-hair-care", "Skin & Hair Care"], ["digestive-wellness", "Digestive Wellness"],
-    ["health-accessories", "Health Accessories"], ["books", "Books & Education"],
-  ];
+  const cats = STORE_CATEGORIES;
   const catId: Record<string, string> = {};
   for (const [i, [slug, name]] of cats.entries()) {
     const c = await db.category.upsert({ where: { slug }, update: {}, create: { slug, name, sort: i } });
@@ -114,14 +142,7 @@ async function main() {
     { code: "FIRSTCONSULT", percentOff: 20, maxOff: 150, appliesTo: "CONSULTATION" },
   ]) await db.coupon.upsert({ where: { code: c.code }, update: {}, create: c });
 
-  const settings: Record<string, string> = {
-    clinic_name: "PARMSUKH Ayurveda & Homoeopathy Centre",
-    clinic_address: "Bhatti Road, Bathinda, Punjab, India",
-    clinic_phone: "", clinic_email: "care@parmsukh.com",
-    opening_hours: "Mon–Fri 10:00–13:00, 16:00–19:00 · Sat 10:00–13:00",
-    holidays: "",
-    invoice_prefix: "PS", gstin: "",
-  };
+  const settings = CLINIC_SETTINGS;
   for (const [key, value] of Object.entries(settings)) await db.clinicSetting.upsert({ where: { key }, update: {}, create: { key, value } });
 
   console.log("Seed complete. Staff password for all demo accounts:", PASSWORD);
